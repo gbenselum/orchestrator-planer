@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutionPlan",
+  "description": "Zero-Inference Micro-Task Execution Plan Schema (v1.0)",
+  "type": "object",
+  "required": [
+    "version",
+    "plan_id",
+    "tasks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objective": {
+      "type": "string"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "subagent",
+          "instruction",
+          "on_failure"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subagent": {
+            "type": "string",
+            "enum": [
+              "code_editor",
+              "command_runner",
+              "parser",
+              "transformer",
+              "validator",
+              "kubectl",
+              "docker",
+              "gh"
+            ]
+          },
+          "instruction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "object"
+          },
+          "target_file": {
+            "type": "string"
+          },
+          "target_lines": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "context_snippet": {
+            "type": "string"
+          },
+          "replacement_payload": {
+            "type": "string"
+          },
+          "expected_format": {
+            "type": "string",
+            "enum": [
+              "unified_diff",
+              "exact_slice",
+              "json",
+              "boolean_report"
+            ]
+          },
+          "output_schema": {
+            "type": "object"
+          },
+          "expected_outcome": {
+            "type": "object",
+            "properties": {
+              "exit_code": {
+                "type": "integer"
+              },
+              "stdout_contains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "stderr_contains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "regex_matches": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "regex_excludes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "passed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "on_failure": {
+            "type": "string",
+            "enum": [
+              "abort_to_planner",
+              "retry_with_diff_validation",
+              "retry_with_schema_validation",
+              "route_to_planner_for_replan",
+              "halt"
+            ]
+          },
+          "max_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 2
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 30
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+version: "1.0"
+plan_id: "plan-2026-full-taxonomy-demo"
+objective: "Parse structured error diagnostics, apply surgical patch, and run read-only validator"
+tasks:
+  - task_id: "001"
+    subagent: "command_runner"
+    instruction: "Emit raw diagnostic log line from test target"
+    command: "python3 -c \"print('ERROR:src/auth/service.py:85:ExpiredTokenError')\""
+    inputs: {}
+    expected_outcome:
+      exit_code: 0
+      stdout_contains:
+        - "ExpiredTokenError"
+    on_failure: "abort_to_planner"
+
+  - task_id: "002"
+    subagent: "parser"
+    instruction: "Extract structured error metadata from raw diagnostic stdout"
+    inputs:
+      raw_log: "{{tasks.001.stdout}}"
+    output_schema:
+      type: "object"
+      required: ["error_type", "file_path"]
+      additionalProperties: false
+      properties:
+        error_type:
+          type: "string"
+        file_path:
+          type: "string"
+    depends_on:
+      - "001"
+    on_failure: "retry_with_schema_validation"
+
+  - task_id: "003"
+    subagent: "code_editor"
+    instruction: "Update token expiry check to handle missing timestamp"
+    target_file: "src/auth/service.py"
+    target_lines: [84, 92]
+    context_snippet: |
+      if token.expires_at < current_time:
+          raise ExpiredTokenError()
+    replacement_payload: |
+      if not token.expires_at or token.expires_at < current_time:
+          raise ExpiredTokenError("Token missing or expired")
+    expected_format: "unified_diff"
+    depends_on:
+      - "002"
+    on_failure: "retry_with_diff_validation"
+
+  - task_id: "004"
+    subagent: "validator"
+    instruction: "Verify syntax compilation of patched service module"
+    command: "python3 -m py_compile src/auth/service.py"
+    expected_outcome:
+      exit_code: 0
+      passed: true
+    depends_on:
+      - "003"
+    on_failure: "route_to_planner_for_replan"

@@ -1,0 +1,34 @@
+version: "1.0"
+plan_id: "plan-2026-auth-refactor"
+tasks:
+  - task_id: "001"
+    subagent: "command_runner"
+    instruction: "Run targeted unit tests to verify baseline failure"
+    command: "pytest tests/unit/test_auth.py -k test_token_expiration -q"
+    inputs: {}
+    expected_outcome:
+      exit_code: 1
+    on_failure: "abort_to_planner"
+
+  - task_id: "002"
+    subagent: "code_editor"
+    instruction: "Update token expiry check to handle missing timestamp"
+    target_file: "src/auth/service.py"
+    target_lines: [84, 92]
+    context_snippet: |
+      if token.expires_at < current_time:
+          raise ExpiredTokenError()
+    replacement_payload: |
+      if not token.expires_at or token.expires_at < current_time:
+          raise ExpiredTokenError("Token missing or expired")
+    expected_format: "unified_diff"
+    on_failure: "retry_with_diff_validation"
+
+  - task_id: "003"
+    subagent: "command_runner"
+    instruction: "Execute test suite for deterministic validation"
+    command: "pytest tests/unit/test_auth.py -k test_token_expiration -q"
+    inputs: {}
+    expected_outcome:
+      exit_code: 0
+    on_failure: "route_to_planner_for_replan"

@@ -1,0 +1,53 @@
+version: "1.0"
+plan_id: "plan-2026-devops-pipeline"
+objective: "Verify container build, validate kubernetes deployment manifest, and check release status via GitHub CLI"
+tasks:
+  - task_id: "001"
+    subagent: "docker"
+    instruction: "Build test application container image"
+    command: "docker build -t micro-app:test -f Dockerfile ."
+    inputs: {}
+    expected_outcome:
+      exit_code: 0
+      stdout_contains:
+        - "Successfully tagged micro-app:test"
+    on_failure: "abort_to_planner"
+
+  - task_id: "002"
+    subagent: "kubectl"
+    instruction: "Run client dry-run validation on Kubernetes deployment manifest"
+    command: "kubectl apply -f k8s/deployment.yaml --dry-run=client -o json"
+    inputs: {}
+    output_schema:
+      type: "object"
+      required: ["kind", "metadata"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["Deployment"]
+        metadata:
+          type: "object"
+          required: ["name"]
+          properties:
+            name:
+              type: "string"
+    depends_on:
+      - "001"
+    on_failure: "abort_to_planner"
+
+  - task_id: "003"
+    subagent: "gh"
+    instruction: "Retrieve latest release metadata for deployment verification"
+    command: "gh release view v1.0.0 --json tagName,isDraft"
+    inputs: {}
+    output_schema:
+      type: "object"
+      required: ["tagName", "isDraft"]
+      properties:
+        tagName:
+          type: "string"
+        isDraft:
+          type: "boolean"
+    depends_on:
+      - "002"
+    on_failure: "route_to_planner_for_replan"
